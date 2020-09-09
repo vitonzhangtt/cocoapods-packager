@@ -25,23 +25,29 @@ module Pod
       end
 
       def initialize(argv)
+        # MARK: 处理参数
         @embedded = argv.flag?('embedded')
         @force = argv.flag?('force')
         @library = argv.flag?('library')
+        # MARK: Generate dynamic framework.
         @dynamic = argv.flag?('dynamic')
         @mangle = argv.flag?('mangle', true)
         @bundle_identifier = argv.option('bundle-identifier', nil)
+        # MARK: 
         @exclude_deps = argv.flag?('exclude-deps', false)
         @name = argv.shift_argument
         @source = argv.shift_argument
         @spec_sources = argv.option('spec-sources', 'https://github.com/CocoaPods/Specs.git').split(',')
 
         subspecs = argv.option('subspecs')
+        # MARK: subspec的名字数组.
         @subspecs = subspecs.split(',') unless subspecs.nil?
 
         @config = argv.option('configuration', 'Release')
 
         @source_dir = Dir.pwd
+        # MARK: `spec`是.podspec文件
+        # MARK: @spec is Specification type.
         @spec = spec_with_path(@name)
         @spec = spec_with_name(@name) unless @spec
         super
@@ -61,6 +67,7 @@ module Pod
           return
         end
 
+        # MARK: `work_dir`的作用是什么?
         target_dir, work_dir = create_working_directory
         return if target_dir.nil?
         build_package
@@ -72,13 +79,16 @@ module Pod
       private
 
       def build_in_sandbox(platform)
+        # MARK: config是哪里定义呢? cocoapods-core中定义?
         config.installation_root  = Pathname.new(Dir.pwd)
         config.sandbox_root       = 'Pods'
 
+        # MARK: static_sandbox is `Sandbox` type.
         static_sandbox = build_static_sandbox(@dynamic)
         static_installer = install_pod(platform.name, static_sandbox)
 
         if @dynamic
+          # MARK: dynamic_sandbox is `Sandbox` type.
           dynamic_sandbox = build_dynamic_sandbox(static_sandbox, static_installer)
           install_dynamic_pod(dynamic_sandbox, static_sandbox, static_installer)
         end
@@ -88,14 +98,17 @@ module Pod
 
         ensure # in case the build fails; see Builder#xcodebuild.
           Pathname.new(config.sandbox_root).rmtree
+          # MARK: 
           FileUtils.rm_f('Podfile.lock')
         end
       end
 
       def build_package
+        # MARK: 
         builder = SpecBuilder.new(@spec, @source, @embedded, @dynamic)
         newspec = builder.spec_metadata
 
+        # MARK: 针对每个Platform构建不同的.podspec文件.
         @spec.available_platforms.each do |platform|
           build_in_sandbox(platform)
 
@@ -103,9 +116,11 @@ module Pod
         end
 
         newspec += builder.spec_close
+        # MARK: 保存生成的.podspec文件
         File.open(@spec.name + '.podspec', 'w') { |file| file.write(newspec) }
       end
 
+      # MARK: (根据source_dir, spec, spec.version)创建target_dir.
       def create_target_directory
         target_dir = "#{@source_dir}/#{@spec.name}-#{@spec.version}"
         if File.exist? target_dir
@@ -120,6 +135,7 @@ module Pod
       end
 
       def create_working_directory
+        # MARK: 
         target_dir = create_target_directory
         return if target_dir.nil?
 
@@ -131,6 +147,7 @@ module Pod
         [target_dir, work_dir]
       end
 
+      # MARK: 
       def perform_build(platform, static_sandbox, dynamic_sandbox)
         static_sandbox_root = config.sandbox_root.to_s
 

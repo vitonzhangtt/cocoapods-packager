@@ -1,4 +1,6 @@
 module Pod
+  # MARK: 创建.podspec文件的内容.
+  # MARK: 在哪里找到生成的spec文件?
   class SpecBuilder
     def initialize(spec, source, embedded, dynamic)
       @spec = spec
@@ -7,6 +9,7 @@ module Pod
       @dynamic = dynamic
     end
 
+    # MARK: 计算framework的路径.
     def framework_path
       if @embedded
         @spec.name + '.embeddedframework' + '/' + @spec.name + '.framework'

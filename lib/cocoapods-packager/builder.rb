@@ -1,19 +1,20 @@
 module Pod
   class Builder
     def initialize(source_dir, static_sandbox_root, dynamic_sandbox_root, public_headers_root, spec, embedded, mangle, dynamic, config, bundle_identifier, exclude_deps)
-      @source_dir = source_dir
-      @static_sandbox_root = static_sandbox_root
-      @dynamic_sandbox_root = dynamic_sandbox_root
-      @public_headers_root = public_headers_root
-      @spec = spec
-      @embedded = embedded
-      @mangle = mangle
-      @dynamic = dynamic
-      @config = config
-      @bundle_identifier = bundle_identifier
-      @exclude_deps = exclude_deps
+      @source_dir = source_dir  # MARK: type => 
+      @static_sandbox_root = static_sandbox_root # MARK: type =>  
+      @dynamic_sandbox_root = dynamic_sandbox_root # MARK: type => 
+      @public_headers_root = public_headers_root # MARK: type => 
+      @spec = spec # MARK: type => 
+      @embedded = embedded # MARK: type => 
+      @mangle = mangle # MARK: type => 
+      @dynamic = dynamic # MARK: type => 
+      @config = config # MARK: type => 
+      @bundle_identifier = bundle_identifier # MARK: type => 
+      @exclude_deps = exclude_deps # MARK: type => 
     end
 
+    # MARK: 构建
     def build(platform, library)
       if library
         build_static_library(platform)
@@ -23,6 +24,7 @@ module Pod
     end
 
     def build_static_library(platform)
+      # MARK: 构建`.a`静态库.
       UI.puts("Building static library #{@spec} with configuration #{@config}")
 
       defines = compile(platform)
@@ -30,18 +32,23 @@ module Pod
 
       platform_path = Pathname.new(platform.name.to_s)
       platform_path.mkdir unless platform_path.exist?
+      # MARK: 
       build_library(platform, defines, platform_path + Pathname.new("lib#{@spec.name}.a"))
     end
 
     def build_framework(platform)
+      # MARK: 构建.framework
       UI.puts("Building framework #{@spec} with configuration #{@config}")
 
+      # MARK: 编译
       defines = compile(platform)
       build_sim_libraries(platform, defines)
 
       if @dynamic
+        # MARK: 构建dynamic framework.
         build_dynamic_framework(platform, defines, "#{@dynamic_sandbox_root}/build/#{@spec.name}.framework/#{@spec.name}")
       else
+        # MARK: 
         create_framework(platform.name.to_s)
         build_library(platform, defines, @fwk.versions_path + Pathname.new(@spec.name))
         copy_headers
@@ -63,6 +70,7 @@ module Pod
 
     private
 
+    # MARK: 生成.framework
     def build_dynamic_framework(platform, defines, output)
       UI.puts("Building dynamic Framework #{@spec} with configuration #{@config}")
 
@@ -78,6 +86,7 @@ module Pod
       end
     end
 
+    # MARK: (根据沙盒中的.a文件)生成static library.
     def build_library(platform, defines, output)
       static_libs = static_libs_in_sandbox
 
@@ -96,6 +105,7 @@ module Pod
       # Build Target Dynamic Framework for both device and Simulator
       device_defines = "#{defines} LIBRARY_SEARCH_PATHS=\"#{Dir.pwd}/#{@static_sandbox_root}/build\""
       device_options = ios_build_options << ' -sdk iphoneos'
+      # MARK: 
       xcodebuild(device_defines, device_options, 'build', @spec.name.to_s, @dynamic_sandbox_root.to_s)
 
       sim_defines = "#{defines} LIBRARY_SEARCH_PATHS=\"#{Dir.pwd}/#{@static_sandbox_root}/build-sim\" ONLY_ACTIVE_ARCH=NO"
@@ -123,12 +133,14 @@ module Pod
       `mv #{@dynamic_sandbox_root}/build/#{@spec.name}.framework.dSYM #{platform.name}`
     end
 
+    # MARK: 构建用于simulator的`target`(library或者framework).
     def build_sim_libraries(platform, defines)
       if platform.name == :ios
         xcodebuild(defines, '-sdk iphonesimulator', 'build-sim')
       end
     end
 
+    # MARK: 通过工具来(libtool, lipo)创建静态库(.a).
     def build_static_lib_for_ios(static_libs, _defines, output)
       return if static_libs.count == 0
       `libtool -static -o #{@static_sandbox_root}/build/package.a #{static_libs.join(' ')}`
@@ -163,8 +175,11 @@ module Pod
       FileUtils.rm_rf('Pods/build')
     end
 
+    # MARK: 
     def compile(platform)
+      # MARK: PodsDummy_Pods_`spec.name`的作用是什么呢?
       defines = "GCC_PREPROCESSOR_DEFINITIONS='$(inherited) PodsDummy_Pods_#{@spec.name}=PodsDummy_PodPackage_#{@spec.name}'"
+      # MARK: Specification::consumer --> ???
       defines << ' ' << @spec.consumer(platform).compiler_flags.join(' ')
 
       if platform.name == :ios
@@ -177,7 +192,7 @@ module Pod
         return build_with_mangling(platform, options)
       end
 
-      defines
+      defines # MARK: 
     end
 
     def copy_headers
@@ -233,6 +248,7 @@ MAP
     end
 
     def create_framework(platform)
+      # MARK: Framework::Tree ???
       @fwk = Framework::Tree.new(@spec.name, platform, @embedded)
       @fwk.make
     end
@@ -253,6 +269,7 @@ MAP
       end
     end
 
+    # MARK: 返回`build_dir`中.a 列表.
     def static_libs_in_sandbox(build_dir = 'build')
       if @exclude_deps
         UI.puts 'Excluding dependencies'
@@ -262,6 +279,7 @@ MAP
       end
     end
 
+    # MARK: -llibnameA -llibnameB -llibnameC 
     def static_linker_flags_in_sandbox
       linker_flags = static_libs_in_sandbox.map do |lib|
         lib.slice!('lib')
@@ -271,15 +289,22 @@ MAP
       linker_flags.reject { |e| e == "-l#{@spec.name}" || e == '-lPods-packager' }
     end
 
+    # MARK: 平台为`ios`的构建参数.
     def ios_build_options
+      # MARK: `-Qunused-arguments` ???
       "ARCHS=\'x86_64 i386 arm64 armv7 armv7s\' OTHER_CFLAGS=\'-fembed-bitcode -Qunused-arguments\'"
     end
 
+    # MARK: 使用`xcodebuild`构建target.
+    # MARK: `defines` vs. `args`
     def xcodebuild(defines = '', args = '', build_dir = 'build', target = 'Pods-packager', project_root = @static_sandbox_root, config = @config)
       if defined?(Pod::DONT_CODESIGN)
+        # MARK: CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
         args = "#{args} CODE_SIGN_IDENTITY=\"\" CODE_SIGNING_REQUIRED=NO"
       end
 
+      # MARK: CONFIGURATION_BUILD_DIR ???
+      # MARK: 2>&1 ???
       command = "xcodebuild #{defines} #{args} CONFIGURATION_BUILD_DIR=#{build_dir} clean build -configuration #{config} -target #{target} -project #{project_root}/Pods.xcodeproj 2>&1"
       output = `#{command}`.lines.to_a
 
@@ -291,6 +316,7 @@ MAP
         # process terminates.
         #
         # See http://ruby-doc.org/core-1.9.3/Process.html#method-c-exit
+        # MARK: To Read the above link. ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         Process.exit
       end
     end

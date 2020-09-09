@@ -3,6 +3,7 @@ module Pod
     class Package < Command
       private
 
+      # MARK: 创建Sandbox实例.
       def build_static_sandbox(dynamic)
         static_sandbox_root = if dynamic
                                 Pathname.new(config.sandbox_root + '/Static')
@@ -12,6 +13,7 @@ module Pod
         Sandbox.new(static_sandbox_root)
       end
 
+      # MARK: 创建Installer实例.
       def install_pod(platform_name, sandbox)
         podfile = podfile_from_spec(
           File.basename(@path),
@@ -23,21 +25,25 @@ module Pod
         )
 
         static_installer = Installer.new(sandbox, podfile)
+        # MARK: `install!` --> ???
         static_installer.install!
 
         unless static_installer.nil?
+          # MARK: 
           static_installer.pods_project.targets.each do |target|
             target.build_configurations.each do |config|
               config.build_settings['CLANG_MODULES_AUTOLINK'] = 'NO'
               config.build_settings['GCC_GENERATE_DEBUGGING_SYMBOLS'] = 'NO'
             end
           end
+          # MARK: `pods_project` --> ???
           static_installer.pods_project.save
         end
 
         static_installer
       end
 
+      # MARK: 创建Pod::Podfile实例.
       def podfile_from_spec(path, spec_name, platform_name, deployment_target, subspecs, sources)
         options = {}
         if path
@@ -46,6 +52,7 @@ module Pod
           options[:path] = '.'
         end
         options[:subspecs] = subspecs if subspecs
+        # MARK: TODO -->
         Pod::Podfile.new do
           sources.each { |s| source s }
           platform(platform_name, deployment_target)
@@ -90,13 +97,14 @@ module Pod
 
       def spec_with_name(name)
         return if name.nil?
-
+        # MARK: `search` --> ???
         set = Pod::Config.instance.sources_manager.search(Dependency.new(name))
         return nil if set.nil?
 
         set.specification.root
       end
 
+      # MARK: 从`path`指定的文件创建Specification实例.
       def spec_with_path(path)
         return if path.nil? || !Pathname.new(path).exist?
 
@@ -126,6 +134,10 @@ module Pod
         dynamic_sandbox
       end
 
+      # MARK: 
+      # dynamic_sandbox: Sandbox
+      # static_sandbox: Sandbox
+      # static_installer: Installer
       def install_dynamic_pod(dynamic_sandbox, static_sandbox, static_installer)
         # 1 Create a dynamic target for only the spec pod.
         dynamic_target = build_dynamic_target(dynamic_sandbox, static_installer)
@@ -152,13 +164,17 @@ module Pod
         write_pod_project(project, dynamic_sandbox)
       end
 
+      # MARK: 返回PodTarget实例.
       def build_dynamic_target(dynamic_sandbox, static_installer)
+        # MARK: pod_targets ???
         spec_targets = static_installer.pod_targets.select do |target|
           target.name == @spec.name
         end
         static_target = spec_targets[0]
 
+        # MARK: Pod::PodTarget::initialize 需要的参数有多个, 此处只有三个参数 ???
         dynamic_target = Pod::PodTarget.new(static_target.specs, static_target.target_definitions, dynamic_sandbox)
+        # MARK: PodTarget没有`host_requires_frameworks` 是哪个属性 ???
         dynamic_target.host_requires_frameworks = true
         dynamic_target.user_build_configurations = static_target.user_build_configurations
         dynamic_target
@@ -166,10 +182,13 @@ module Pod
 
       def prepare_pods_project(dynamic_sandbox, spec_name, installer)
         # Create a new pods project
+        # MARK: Pod::Project
         pods_project = Pod::Project.new(dynamic_sandbox.project_path)
 
         # Update build configurations
         installer.analysis_result.all_user_build_configurations.each do |name, type|
+          # MARK: 添加build configuration
+          # Project::add_build_configuration
           pods_project.add_build_configuration(name, type)
         end
 
@@ -177,8 +196,10 @@ module Pod
         local = dynamic_sandbox.local?(spec_name)
         path = dynamic_sandbox.pod_dir(spec_name)
         was_absolute = dynamic_sandbox.local_path_was_absolute?(spec_name)
+        # MARK: Project::add_pod_group
         pods_project.add_pod_group(spec_name, path, local, was_absolute)
 
+        # MARK: Sandbox没有`project`属性 ???
         dynamic_sandbox.project = pods_project
         pods_project
       end
@@ -188,19 +209,23 @@ module Pod
         `#{command}`
       end
 
+      # MARK: 并没有发生实质的copy操作, 只是创建了目录.
       def copy_dynamic_supporting_files(_static_sandbox, dynamic_target, _dynamic_sandbox)
         support_dir = Pathname.new(dynamic_target.support_files_dir.to_s.chomp("/#{dynamic_target.name}"))
         support_dir.mkdir
       end
 
       def update_file_accessors(dynamic_target, dynamic_sandbox)
+        # MARK: 获取pod的根目录. pod_root --> Pathname
         pod_root = dynamic_sandbox.pod_dir(dynamic_target.root_spec.name)
 
+        # MARK: path_list --> PathList
         path_list = Sandbox::PathList.new(pod_root)
         file_accessors = dynamic_target.specs.map do |spec|
           Sandbox::FileAccessor.new(path_list, spec.consumer(dynamic_target.platform))
         end
 
+        # MARK: 
         dynamic_target.file_accessors = file_accessors
         dynamic_target
       end

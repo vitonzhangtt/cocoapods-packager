@@ -11,10 +11,11 @@ module Framework
       (Pathname.new(@fwk_path) + Pathname.new('Resources')).delete
     end
 
+    # MARK: 创建.framework的目录结构.
     def initialize(name, platform, embedded)
-      @name = name
-      @platform = platform
-      @embedded = embedded
+      @name = name         # framework's name 
+      @platform = platform # 
+      @embedded = embedded # ==> boolean
     end
 
     def make
