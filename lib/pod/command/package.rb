@@ -55,7 +55,7 @@ module Pod
 
       def validate!
         super
-        help! 'A podspec name or path is required.' unless @spec
+        help! '[Debug] A podspec name or path is required.' unless @spec
         help! 'podspec has binary-only depedencies, mangling not possible.' if @mangle && binary_only?(@spec)
         help! '--bundle-identifier option can only be used for dynamic frameworks' if @bundle_identifier && !@dynamic
         help! '--exclude-deps option can only be used for static libraries' if @exclude_deps && @dynamic

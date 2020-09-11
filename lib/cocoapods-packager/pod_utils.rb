@@ -222,10 +222,11 @@ module Pod
         # MARK: path_list --> PathList
         path_list = Sandbox::PathList.new(pod_root)
         file_accessors = dynamic_target.specs.map do |spec|
+          # MARK: spec.consumer
           Sandbox::FileAccessor.new(path_list, spec.consumer(dynamic_target.platform))
         end
 
-        # MARK: 
+        # MARK: 更新dynamic_target的`file_accessors`.
         dynamic_target.file_accessors = file_accessors
         dynamic_target
       end
